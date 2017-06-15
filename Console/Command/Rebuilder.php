@@ -38,10 +38,15 @@ class Rebuilder extends Command
     protected $moduleResource;
 
     /**
-     * @var string
+     * Contain name of ID column: entity_id or row_id
+     *
+     * @var $idColumn
      */
     protected $idColumn = 'entity_id';
 
+    /**
+     * Batch size limitation
+     */
     const BATCH_SIZE = 50;
 
     /**
@@ -54,11 +59,22 @@ class Rebuilder extends Command
         parent::configure();
     }
 
+    /**
+     * Returns formatted time
+     *
+     * @param $time
+     * @return string
+     */
     protected function formatTime($time)
     {
         return sprintf('%02d:%02d:%02d', ($time / 3600), ($time / 60 % 60), $time % 60);
     }
 
+    /**
+     * Returns abstract resource
+     *
+     * @return \Magento\Framework\Module\ModuleResource|mixed
+     */
     protected function getModuleResource()
     {
         if ($this->moduleResource == null) {
@@ -68,6 +84,11 @@ class Rebuilder extends Command
         return $this->moduleResource;
     }
 
+    /**
+     * Returns connection
+     *
+     * @return false|\Magento\Framework\DB\Adapter\AdapterInterface|\Magento\Framework\DB\Adapter\Pdo\Mysql
+     */
     protected function getConnection()
     {
         if ($this->connection == null) {
@@ -77,6 +98,11 @@ class Rebuilder extends Command
         return $this->connection;
     }
 
+    /**
+     * Initialization
+     *
+     * @return $this
+     */
     protected function init()
     {
         /** @var \Magento\Framework\Module\ModuleResource $moduleResource */
@@ -88,8 +114,14 @@ class Rebuilder extends Command
         if (isset($description['row_id'])) {
             $this->idColumn = 'row_id';
         }
+        return $this;
     }
 
+    /**
+     * Truncates URL rewrite indexer tables
+     *
+     * @return $this
+     */
     protected function truncateTables()
     {
         $this->output->write('[STEP 1] Truncating tables `catalog_url_rewrite_product_category` and `url_rewrite`... ');
@@ -108,8 +140,14 @@ class Rebuilder extends Command
         $microTimeEnd = microtime(true);
         $microTimeDiff = $microTimeEnd - $microTimeStart;
         $this->output->write('performed successfully in ' . $this->formatTime($microTimeDiff), true);
+        return $this;
     }
 
+    /**
+     * Rebuilding URL rewrites for CMS pages
+     *
+     * @return $this
+     */
     protected function rebuildCmsUrlRewrites()
     {
         $this->output->write('[STEP 2] Rebuilding URL rewrites for CMS pages... ');
@@ -127,7 +165,6 @@ class Rebuilder extends Command
         $offset = 0;
         $counter = 0;
         while ($cmsPageIds = $this->getConnection()->fetchCol($select)) {
-
             /** @var \Magento\Cms\Model\Page $cmsPage */
             $cmsPage = $this->getObjectManager()->get('Magento\Cms\Model\Page');
             $eventName = 'cms_page_save_after';
@@ -162,8 +199,14 @@ class Rebuilder extends Command
         $microTimeEnd = microtime(true);
         $microTimeDiff = $microTimeEnd - $microTimeStart;
         $this->output->write('performed successfully in ' . $this->formatTime($microTimeDiff), true);
+        return $this;
     }
 
+    /**
+     * Checks and resolves duplicate URL keys for categories
+     *
+     * @return $this
+     */
     protected function checkCategoryUrlKeys()
     {
         $this->output->write('[STEP 3] Checking for duplicate url_key category values', true);
@@ -237,7 +280,6 @@ class Rebuilder extends Command
         $urlPathAttributeId = (int)$connection->query($select)->fetchColumn();
 
         $select->reset();
-
         $select->from(
             array('ccev' => $categoryVarCharTable),
             array(
@@ -267,9 +309,8 @@ class Rebuilder extends Command
 
         if ($duplicateCount) {
             $offset = 0;
-            $limit = 50;
 
-            $select->from(array('sdcuk' => $duplicateCategoryUrlKeysTable), '*')->limit($limit, $offset);
+            $select->from(array('sdcuk' => $duplicateCategoryUrlKeysTable), '*')->limit(self::BATCH_SIZE, $offset);
             $duplicates = $connection->query($select)->fetchAll();
             $subSelect = $connection->select()
                 ->from(array('ccev' => $categoryVarCharTable), ['value_id', $this->idColumn]);
@@ -303,15 +344,13 @@ class Rebuilder extends Command
                                 'attribute_id = ?' => $urlPathAttributeId
                             )
                         );
-
-
                         $suffixId++;
                     }
                     $this->progressBar->advance();
-
                 }
-                $offset += $limit;
-                $select->limit($limit, $offset);
+
+                $offset += self::BATCH_SIZE;
+                $select->limit(self::BATCH_SIZE, $offset);
                 $duplicates = $connection->query($select)->fetchAll();
             }
 
@@ -324,8 +363,14 @@ class Rebuilder extends Command
         $this->output->write('         ' . $duplicateCount . ' duplicates of url_key category values were processed in '
             . $this->formatTime($microTimeDiff), true);
 
+        return $this;
     }
 
+    /**
+     * Checks and resolves duplicates of URL keys for products
+     *
+     * @return $this
+     */
     protected function checkProductUrlKeys()
     {
         $this->output->write('[STEP 4] Checking for duplicate url_key product values', true);
@@ -362,6 +407,7 @@ class Rebuilder extends Command
                 ['unsigned' => true, 'nullable' => false, 'default' => '0'],
                 'Count'
             );
+
         $connection->createTable($table);
 
         /** @var \Magento\Framework\DB\Select $select */
@@ -396,9 +442,8 @@ class Rebuilder extends Command
 
         if ($duplicateCount) {
             $offset = 0;
-            $limit = 50;
 
-            $select->from(array('sdpuk' => $duplicateProductUrlKeysTable), '*')->limit($limit, $offset);
+            $select->from(array('sdpuk' => $duplicateProductUrlKeysTable), '*')->limit(self::BATCH_SIZE, $offset);
             $duplicates = $connection->query($select)->fetchAll();
             $subSelect = $connection->select()->from(array('cpev' => $productVarCharTable), 'value_id');
 
@@ -426,8 +471,8 @@ class Rebuilder extends Command
                     $this->progressBar->advance();
 
                 }
-                $offset += $limit;
-                $select->limit($limit, $offset);
+                $offset += self::BATCH_SIZE;
+                $select->limit(self::BATCH_SIZE, $offset);
                 $duplicates = $connection->query($select)->fetchAll();
             }
 
@@ -440,8 +485,14 @@ class Rebuilder extends Command
         $this->output->write('         ' . $duplicateCount . ' duplicates of url_key product values were processed in '
             . $this->formatTime($microTimeDiff), true);
 
+        return $this;
     }
 
+    /**
+     * Rebuilding URL rewrites for categories
+     *
+     * @return $this
+     */
     protected function rebuildCategoryUrlRewrites()
     {
         $this->output->write('[STEP 5] Rebuilding URL rewrites for categories... ', true);
@@ -502,8 +553,15 @@ class Rebuilder extends Command
         $microTimeDiff = $microTimeEnd - $microTimeStart;
         $this->output->write('         Successfully regenerated URL rewrites for ' . $duplicateCount
             . ' categories and linked products in ' . $this->formatTime($microTimeDiff), true);
+
+        return $this;
     }
 
+    /**
+     * Rebuilding URL rewrites for products
+     *
+     * @return $this
+     */
     protected function rebuildProductUrlRewrites()
     {
         $this->output->write('[STEP 6] Rebuilding URL rewrites for products... ', true);
@@ -570,6 +628,8 @@ class Rebuilder extends Command
         $microTimeDiff = $microTimeEnd - $microTimeStart;
         $this->output->write('         Successfully regenerated URL rewrites for ' . $counter . ' products in '
             . $this->formatTime($microTimeDiff), true);
+
+        return $this;
     }
 
     /**
@@ -608,11 +668,14 @@ class Rebuilder extends Command
 
     /**
      * Setup progress bar
+     *
+     * @return $this
      */
     private function setupProgress()
     {
         $this->progressBar = new \Symfony\Component\Console\Helper\ProgressBar($this->output);
         $this->progressBar->setFormat('<info>%message%</info> %current%/%max% [%bar%] %percent:3s%%');
+        return $this;
     }
 
     /**
@@ -632,20 +695,5 @@ class Rebuilder extends Command
             $this->objectManager->configure($configLoader->load($area));
         }
         return $this->objectManager;
-    }
-
-    /**
-     * @return \Magento\Framework\Model\ResourceModel\Iterator
-     */
-    public function getIterator()
-    {
-        return $this->getObjectManager()->create('\Magento\Framework\Model\ResourceModel\Iterator');
-    }
-    /**
-     * @return  \Magento\Store\Model\StoreManagerInterface
-     */
-    public function getStoreManager()
-    {
-        return $this->getObjectManager()->get('\Magento\Store\Model\StoreManagerInterface');
     }
 }
