@@ -44,10 +44,15 @@ class Rebuilder extends Command
      */
     protected $idColumn = 'entity_id';
 
+    protected $categoryAttributeUrlKeyId = NULL;
+    protected $categoryAttributeUrlPathId = NULL;
+    protected $productAttributeUrlKeyId = NULL;
+    protected $productAttributeUrlPathId = NULL;
+
     /**
      * Batch size limitation
      */
-    const BATCH_SIZE = 50;
+    const BATCH_SIZE = 100;
 
     /**
      * {@inheritdoc}
@@ -96,6 +101,82 @@ class Rebuilder extends Command
         }
 
         return $this->connection;
+    }
+
+    protected function getCategoryAttributeUrlKeyId()
+    {
+        if ($this->categoryAttributeUrlKeyId === NULL) {
+            /** @var \Magento\Framework\Module\ModuleResource $moduleResource */
+            $moduleResource = $this->getModuleResource();
+            /** @var \Magento\Framework\DB\Adapter\Pdo\Mysql $connection */
+            $connection = $this->getConnection();
+
+            /** @var \Magento\Framework\DB\Select $select */
+            $select = $connection->select();
+            $select->from(array('eav' => $moduleResource->getTable('eav_attribute')), 'eav.attribute_id')
+                ->join(
+                    array('eavt' => $moduleResource->getTable('eav_entity_type')),
+                    'eav.entity_type_id = eavt.entity_type_id')
+                ->where('eav.attribute_code = ?', 'url_key')
+                ->where('eavt.entity_type_code = ?', 'catalog_category');
+
+            $this->categoryAttributeUrlKeyId = (int)$connection->query($select)->fetchColumn();
+        }
+
+        return $this->categoryAttributeUrlKeyId;
+    }
+
+    protected function getCategoryAttributeUrlPathId()
+    {
+        if ($this->categoryAttributeUrlPathId === NULL) {
+            /** @var \Magento\Framework\Module\ModuleResource $moduleResource */
+            $moduleResource = $this->getModuleResource();
+            /** @var \Magento\Framework\DB\Adapter\Pdo\Mysql $connection */
+            $connection = $this->getConnection();
+
+            /** @var \Magento\Framework\DB\Select $select */
+            $select = $connection->select();
+            $select->from(array('eav' => $moduleResource->getTable('eav_attribute')), 'eav.attribute_id')
+                ->join(
+                    array('eavt' => $moduleResource->getTable('eav_entity_type')),
+                    'eav.entity_type_id = eavt.entity_type_id')
+                ->where('eav.attribute_code = ?', 'url_path')
+                ->where('eavt.entity_type_code = ?', 'catalog_category');
+
+            $this->categoryAttributeUrlPathId = (int)$connection->query($select)->fetchColumn();
+        }
+
+        return $this->categoryAttributeUrlPathId;
+    }
+
+    protected function getProductAttributeUrlKeyId()
+    {
+        if ($this->productAttributeUrlKeyId === NULL) {
+            /** @var \Magento\Framework\Module\ModuleResource $moduleResource */
+            $moduleResource = $this->getModuleResource();
+            /** @var \Magento\Framework\DB\Adapter\Pdo\Mysql $connection */
+            $connection = $this->getConnection();
+
+            /** @var \Magento\Framework\DB\Select $select */
+            $select = $connection->select();
+            $select->from(array('eav' => $moduleResource->getTable('eav_attribute')), 'eav.attribute_id')
+                ->join(
+                    array('eavt' => $moduleResource->getTable('eav_entity_type')),
+                    'eav.entity_type_id = eavt.entity_type_id'
+                )->where('eav.attribute_code = ?', 'url_key')
+                ->where('eavt.entity_type_code = ?', 'catalog_product');
+            $this->productAttributeUrlKeyId = (int)$connection->query($select)->fetchColumn();
+        }
+
+        return $this->productAttributeUrlKeyId;
+    }
+
+    protected function getProductAttributeUrlPathId()
+    {
+        if ($this->productAttributeUrlPathId == NULL) {
+
+        }
+        return $this->productAttributeUrlPathId;
     }
 
     /**
@@ -237,6 +318,12 @@ class Rebuilder extends Command
                 [],
                 'URL Key'
             )->addColumn(
+                'url_path',
+                \Magento\Framework\DB\Ddl\Table::TYPE_TEXT,
+                255,
+                [],
+                'URL Key'
+            )->addColumn(
                 'count',
                 \Magento\Framework\DB\Ddl\Table::TYPE_INTEGER,
                 null,
@@ -258,43 +345,27 @@ class Rebuilder extends Command
         $connection->createTable($table);
 
         /** @var \Magento\Framework\DB\Select $select */
-        $select = $connection->select()
-            ->from(array('eav' => $moduleResource->getTable('eav_attribute')), 'eav.attribute_id')
-            ->join(
-                array('eavt' => $moduleResource->getTable('eav_entity_type')),
-                'eav.entity_type_id = eavt.entity_type_id')
-            ->where('eav.attribute_code = ?', 'url_key')
-            ->where('eavt.entity_type_code = ?', 'catalog_category');
-
-        $urlKeyAttributeId = (int)$connection->query($select)->fetchColumn();
-
-        $select->reset();
-
-        $select->from(array('eav' => $moduleResource->getTable('eav_attribute')), 'eav.attribute_id')
-            ->join(
-                array('eavt' => $moduleResource->getTable('eav_entity_type')),
-                'eav.entity_type_id = eavt.entity_type_id')
-            ->where('eav.attribute_code = ?', 'url_path')
-            ->where('eavt.entity_type_code = ?', 'catalog_category');
-
-        $urlPathAttributeId = (int)$connection->query($select)->fetchColumn();
-
-        $select->reset();
+        $select = $connection->select();
         $select->from(
-            array('ccev' => $categoryVarCharTable),
+            array('cuk' => $categoryVarCharTable),
             array(
                 'store_id',
                 'url_key' => 'value',
-                'count' => "COUNT(`ccev`.`{$this->idColumn}`)",
+                'count' => "COUNT(`cuk`.`{$this->idColumn}`)",
                 'parent_path' => 'REPLACE(`cce`.`path`, `cce`.`entity_id`, "")',
-                'ids' => "GROUP_CONCAT(`ccev`.{$this->idColumn})"
+                'ids' => "GROUP_CONCAT(`cuk`.{$this->idColumn})"
             )
         )->join(
             array('cce' => $moduleResource->getTable('catalog_category_entity')),
-            "cce.{$this->idColumn} = ccev.{$this->idColumn}",
+            "cce.{$this->idColumn} = cuk.{$this->idColumn}",
             ''
-        )->where('ccev.attribute_id = ?', $urlKeyAttributeId)
-            ->group(array('value', 'parent_path', 'store_id'))
+        )->join(
+            array('cup' => $categoryVarCharTable),
+            "cce.{$this->idColumn} = cup.{$this->idColumn} AND cup.store_id = cuk.store_id "
+                . " AND cup.attribute_id = {$this->getCategoryAttributeUrlPathId()}",
+            array('url_path' => 'cup.value')
+        )->where('cuk.attribute_id = ?', $this->getCategoryAttributeUrlKeyId())
+            ->group(array('url_key', 'parent_path', 'store_id'))
             ->having('count > 1');
 
         $query = $connection->insertFromSelect($select, $duplicateCategoryUrlKeysTable);
@@ -322,7 +393,7 @@ class Rebuilder extends Command
                 foreach ($duplicates as $data) {
                     $subSelect->reset(\Magento\Framework\DB\Select::WHERE);
                     $subSelect->where('value = ?', $data['url_key'])
-                        ->where('attribute_id = ?', $urlKeyAttributeId)
+                        ->where('attribute_id = ?', $this->getCategoryAttributeUrlKeyId())
                         ->where('store_id = ?', (int)$data['store_id'])
                         ->where($this->idColumn . ' IN (?)', explode(',', $data['ids']))
                         ->order('value_id');
@@ -337,11 +408,12 @@ class Rebuilder extends Command
                             array('value_id = ?' => (int)$valueIdRow['value_id'])
                         );
 
+                        $urlPath = $data['url_path'] . '-' . $suffixId;
                         $connection->update($categoryVarCharTable,
-                            array('value' => null),
+                            array('value' => $urlPath),
                             array(
                                 $this->idColumn . ' = ?' => $valueIdRow[$this->idColumn],
-                                'attribute_id = ?' => $urlPathAttributeId
+                                'attribute_id = ?' => $this->getCategoryAttributeUrlPathId()
                             )
                         );
                         $suffixId++;
@@ -376,10 +448,11 @@ class Rebuilder extends Command
         $this->output->write('[STEP 4] Checking for duplicate url_key product values', true);
         $microTimeStart = microtime(true);
 
-        /** @var \Magento\Framework\Module\ModuleResource $moduleResource */
-        $moduleResource = $this->getModuleResource();
         /** @var \Magento\Framework\DB\Adapter\Pdo\Mysql $connection */
         $connection = $this->getConnection();
+
+        /** @var \Magento\Framework\Module\ModuleResource $moduleResource */
+        $moduleResource = $this->getModuleResource();
 
         $duplicateProductUrlKeysTable = $moduleResource->getTable('sparta_duplicate_product_url_keys');
         $productVarCharTable = $moduleResource->getTable('catalog_product_entity_varchar');
@@ -389,12 +462,6 @@ class Rebuilder extends Command
         }
         $table = $connection->newTable($duplicateProductUrlKeysTable)
             ->addColumn(
-                'store_id',
-                \Magento\Framework\DB\Ddl\Table::TYPE_SMALLINT,
-                null,
-                ['unsigned' => true, 'nullable' => false, 'default' => '0'],
-                'Store ID'
-            )->addColumn(
                 'url_key',
                 \Magento\Framework\DB\Ddl\Table::TYPE_TEXT,
                 255,
@@ -411,23 +478,15 @@ class Rebuilder extends Command
         $connection->createTable($table);
 
         /** @var \Magento\Framework\DB\Select $select */
-        $select = $connection->select()
-            ->from(array('eav' => $moduleResource->getTable('eav_attribute')), 'eav.attribute_id')
-            ->join(
-                array('eavt' => $moduleResource->getTable('eav_entity_type')),
-                'eav.entity_type_id = eavt.entity_type_id'
-            )->where('eav.attribute_code = ?', 'url_key')
-            ->where('eavt.entity_type_code = ?', 'catalog_product');
+        $select = $connection->select();
 
-        $urlKeyAttributeId = (int)$connection->query($select)->fetchColumn();
-
-        $select->reset();
+        $this->productAttributeUrlKeyId = $this->getProductAttributeUrlKeyId();
 
         $select->from(
             array('cpev' => $productVarCharTable),
-            array('store_id', 'url_key' => 'value', 'count' => "COUNT({$this->idColumn})")
-        )->where('cpev.attribute_id = ?', $urlKeyAttributeId)
-            ->group(array('value', 'store_id'))
+            array('url_key' => 'value', 'count' => "COUNT({$this->idColumn})")
+        )->where('cpev.attribute_id = ?', $this->getProductAttributeUrlKeyId())
+            ->group(array('value'))
             ->having('count > 1');
 
         $query = $connection->insertFromSelect($select, $duplicateProductUrlKeysTable);
@@ -454,8 +513,7 @@ class Rebuilder extends Command
                 foreach ($duplicates as $data) {
                     $subSelect->reset(\Magento\Framework\DB\Select::WHERE);
                     $subSelect->where('value = ?', $data['url_key'])
-                        ->where('attribute_id = ?', $urlKeyAttributeId)
-                        ->where('store_id = ?', (int)$data['store_id'])
+                        ->where('attribute_id = ?', $this->getProductAttributeUrlKeyId())
                         ->order('value_id');
 
                     $valueIds = $connection->query($subSelect)->fetchAll();
@@ -501,31 +559,65 @@ class Rebuilder extends Command
         /** @var \Magento\Framework\DB\Adapter\Pdo\Mysql $connection */
         $connection = $this->getConnection();
 
-        /** @var \Magento\Catalog\Model\ResourceModel\Category\Collection $categoryCollection */
-        $categoryCollection = $this->getObjectManager()->get('Magento\Catalog\Model\ResourceModel\Category\Collection');
+        /** @var \Magento\Framework\Module\ModuleResource $moduleResource */
+        $moduleResource = $this->getModuleResource();
 
-        $countSelect = clone $categoryCollection->getSelect();
-        $countSelect->reset(Select::COLUMNS)->columns('COUNT(*)');
+//        /** @var \Magento\Catalog\Model\ResourceModel\Category\Collection $categoryCollection */
+//        $categoryCollection = $this->getObjectManager()->get('Magento\Catalog\Model\ResourceModel\Category\Collection');
+
+        /** @var \Magento\CatalogUrlRewrite\Observer\CategoryProcessUrlRewriteSavingObserver $categoryProcess */
+        $categoryProcess = $this->getObjectManager()
+            ->get('Magento\CatalogUrlRewrite\Observer\CategoryProcessUrlRewriteSavingObserver');
+
+        $counter = 0;
+        $categoryId = 0;
+
+        /** @var \Magento\Framework\DB\Select $select */
+        $select = $connection->select();
+
+        $categoryEntityTable = $moduleResource->getTable('catalog_category_entity');
+        $categoryVarCharTable = $moduleResource->getTable('catalog_category_entity_varchar');
+
+        $this->idColumn;
+
+        $select->from(['vuk' => $categoryVarCharTable], ['vuk.value as url_key', 'vuk.store_id'])
+            ->join(
+                ['e' => $categoryEntityTable],
+                "e.{$this->idColumn} = vuk.{$this->idColumn}"
+            )
+            ->join(
+                ['vup' => $categoryVarCharTable],
+                "e.{$this->idColumn} = vup.{$this->idColumn} AND vup.store_id = vuk.store_id"
+                . " AND vup.attribute_id = {$this->getCategoryAttributeUrlPathId()}",
+                'vup.value as url_path'
+            )
+            ->limit(self::BATCH_SIZE)
+            ->where("vuk.attribute_id = ?", $this->getCategoryAttributeUrlKeyId())
+            ->where("e.{$this->idColumn} > ?", $categoryId);
+
+        $countSelect = clone $select;
+        $countSelect->reset(Select::COLUMNS)->reset(Select::LIMIT_COUNT)->columns('COUNT(*)');
         $duplicateCount = (int)$connection->query($countSelect)->fetchColumn();
 
         if ($duplicateCount) {
             $this->progressBar->setMessage('         Rebuilding URL rewrites for categories');
             $this->progressBar->start($duplicateCount);
 
-            $offset = 0;
-            $counter = 0;
-            while ($categoryIds = $categoryCollection->getAllIds(self::BATCH_SIZE, $offset)) {
-                /** @var \Magento\Catalog\Model\Category $category */
-                $category = $this->getObjectManager()->get('Magento\Catalog\Model\Category');
+            $categories = $connection->fetchAll($select);
+
+            /** @var \Magento\Catalog\Model\Category $categoryModel */
+            $categoryModel = $this->getObjectManager()->get('Magento\Catalog\Model\Category');
+
+            while (count($categories) > 0) {
                 $eventName = 'catalog_category_save_after';
 
-                foreach ($categoryIds as $categoryId) {
-                    $categoryId = (int)$categoryId;
-                    $category->load($categoryId);
-                    $category->setOrigData('url_key', '');
-                    $category->setUrlPath(null);
+                foreach ($categories as $category) {
+                    $categoryId = (int)$category[$this->idColumn];
 
-                    $data = ['category' => $category];
+                    $categoryModel->unsetData();
+                    $categoryModel->setData($category);
+
+                    $data = ['category' => $categoryModel];
 
                     /** @var \Magento\Framework\Event $event */
                     $event = new Event($data);
@@ -535,14 +627,20 @@ class Rebuilder extends Command
                     $observer = new Observer();
                     $observer->setData(array_merge(['event' => $event], $data));
 
-                    /** @var \Magento\CatalogUrlRewrite\Observer\CategoryProcessUrlRewriteSavingObserver $categoryProcess */
-                    $categoryProcess = $this->getObjectManager()->get('Sparta\UrlRewriteRebuilder\Model\CategoryProcessor');
-                    $categoryProcess->execute($observer);
+                    try {
+                        $categoryProcess->execute($observer);
+                    } catch (\Exception $e) {
+                        $message = "\n[ERROR] " . $e->getMessage() . "\n categoryID = $categoryId";
+                        $this->output->writeln($message);
+                        return \Magento\Framework\Console\Cli::RETURN_FAILURE;
+                    }
                     $this->progressBar->advance();
                     $counter++;
                 }
 
-                $offset += self::BATCH_SIZE;
+                $select->reset(Select::WHERE)->where("vuk.attribute_id = ?", $this->getCategoryAttributeUrlKeyId())
+                    ->where("e.{$this->idColumn} > ?", $categoryId);
+                $categories = $connection->fetchAll($select);
             }
 
             $this->progressBar->finish();
@@ -570,6 +668,12 @@ class Rebuilder extends Command
         /** @var \Magento\Framework\DB\Adapter\Pdo\Mysql $connection */
         $connection = $this->getConnection();
 
+        /** @var \Magento\Catalog\Model\Product $product */
+        $product = $this->getObjectManager()->get('Sparta\UrlRewriteRebuilder\Model\Proxy\Product');
+
+        /** @var \Magento\CatalogUrlRewrite\Observer\ProductProcessUrlRewriteSavingObserver $productProcess */
+        $productProcess = $this->getObjectManager()->get('Magento\CatalogUrlRewrite\Observer\ProductProcessUrlRewriteSavingObserver');
+
         /** @var \Magento\Catalog\Model\ResourceModel\Product\Collection $productCollection */
         $productCollection = $this->getObjectManager()->get('Magento\Catalog\Model\ResourceModel\Product\Collection');
         $select = $productCollection->getSelect()
@@ -587,11 +691,18 @@ class Rebuilder extends Command
             $this->progressBar->setMessage('         Rebuilding URL rewrites for products');
             $this->progressBar->start($duplicateCount);
 
-            $offset = 0;
             $counter = 0;
-            while ($productIds = $productCollection->getAllIds(self::BATCH_SIZE, $offset)) {
-                /** @var \Magento\Catalog\Model\Product $product */
-                $product = $this->getObjectManager()->get('Sparta\UrlRewriteRebuilder\Model\Proxy\Product');
+            $productId = 0;
+
+            $select->reset(Select::WHERE)->order('e.entity_id')
+                ->limit(self::BATCH_SIZE)
+                ->columns('e.' . $productCollection->getEntity()->getIdFieldName())
+                ->where('ur.entity_id is null')
+                ->where('e.entity_id > ?', $productId);
+
+            $productIds = $connection->fetchCol($select);
+
+            while (count($productIds) > 0) {
                 $eventName = 'catalog_product_save_after';
 
                 foreach ($productIds as $productId) {
@@ -599,7 +710,6 @@ class Rebuilder extends Command
                     $product->load($productId);
                     $product->setOrigData('url_key', '');
                     $product->setUrlPath(null);
-
                     $data = ['product' => $product];
 
                     /** @var \Magento\Framework\Event $event */
@@ -610,14 +720,24 @@ class Rebuilder extends Command
                     $observer = new Observer();
                     $observer->setData(array_merge(['event' => $event], $data));
 
-                    /** @var \Magento\CatalogUrlRewrite\Observer\ProductProcessUrlRewriteSavingObserver $productProcess */
-                    $productProcess = $this->getObjectManager()->get('Magento\CatalogUrlRewrite\Observer\ProductProcessUrlRewriteSavingObserver');
-                    $productProcess->execute($observer);
+                    try {
+                        $productProcess->execute($observer);
+                    } catch (\Exception $e) {
+                        $message = "\n[ERROR] " . $e->getMessage() . "\n productID = $productId";
+                        $this->output->writeln($message);
+                        return \Magento\Framework\Console\Cli::RETURN_FAILURE;
+                    }
                     $this->progressBar->advance();
                     $counter++;
+                    $product->unsetData();
+                    unset($event);
+                    unset($observer);
                 }
 
-                $offset += self::BATCH_SIZE;
+                $select->reset(Select::WHERE)
+                    ->where('ur.entity_id is null')
+                    ->where('e.entity_id > ?', $productId);
+                $productIds = $connection->fetchCol($select);
             }
 
             $this->progressBar->finish();

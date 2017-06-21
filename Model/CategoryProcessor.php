@@ -21,6 +21,12 @@ class CategoryProcessor extends CategoryProcessUrlRewriteSavingObserver
         }
 
         $urlRewrites = $this->categoryUrlRewriteGenerator->generate($category);
-        $this->urlPersist->replace($urlRewrites);
+        try {
+            $this->urlPersist->replace($urlRewrites);
+        } catch (\Exception $e) {
+            $message = "\n[ERROR] " . $e->getMessage() . "\n";
+            $this->output->writeln($message);
+            return \Magento\Framework\Console\Cli::RETURN_FAILURE;
+        }
     }
 }
