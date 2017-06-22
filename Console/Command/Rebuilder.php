@@ -9,9 +9,17 @@ use Magento\Backend\App\Area\FrontNameResolver;
 use Symfony\Component\Console\Command\Command;
 use Magento\Framework\Event;
 use Magento\Framework\Event\Observer;
+use Magento\Catalog\Model\Category;
 
 class Rebuilder extends Command
 {
+    /**
+     * Error collector
+     *
+     * @var array
+     */
+    protected $errors = [];
+
     /**
      * @var \Symfony\Component\Console\Helper\ProgressBar
      */
@@ -44,15 +52,47 @@ class Rebuilder extends Command
      */
     protected $idColumn = 'entity_id';
 
+    /**
+     * Category attribute_id for "url_key"
+     *
+     * @var null|int
+     */
     protected $categoryAttributeUrlKeyId = NULL;
+
+    /**
+     * Category attribute_id for "url_path"
+     *
+     * @var null|int
+     */
     protected $categoryAttributeUrlPathId = NULL;
+
+    /**
+     * Product attribute_id for "url_key"
+     *
+     * @var null|int
+     */
     protected $productAttributeUrlKeyId = NULL;
+
+    /**
+     * Product attribute_id for "url_path"
+     *
+     * @var null|int
+     */
     protected $productAttributeUrlPathId = NULL;
+
+    /**
+     * Product attribute_id for "visibility"
+     *
+     * @var null|int
+     */
+    protected $productAttributeVisibilityId = NULL;
 
     /**
      * Batch size limitation
      */
     const BATCH_SIZE = 100;
+
+    const LOG_FILE = './var/log/sparta_urlRewriteRebuilder.log';
 
     /**
      * {@inheritdoc}
@@ -103,6 +143,42 @@ class Rebuilder extends Command
         return $this->connection;
     }
 
+    /**
+     * Setup progress bar
+     *
+     * @return $this
+     */
+    private function setupProgress()
+    {
+        $this->progressBar = new \Symfony\Component\Console\Helper\ProgressBar($this->output);
+        $this->progressBar->setFormat('<info>%message%</info> %current%/%max% [%bar%] %percent:3s%%');
+        return $this;
+    }
+
+    /**
+     * Gets initialized object manager
+     *
+     * @return \Magento\Framework\ObjectManagerInterface
+     */
+    protected function getObjectManager()
+    {
+        if (null == $this->objectManager) {
+            $area = FrontNameResolver::AREA_CODE;
+            $this->objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+            /** @var \Magento\Framework\App\State $appState */
+            $appState = $this->objectManager->get('Magento\Framework\App\State');
+            $appState->setAreaCode($area);
+            $configLoader = $this->objectManager->get('Magento\Framework\ObjectManager\ConfigLoaderInterface');
+            $this->objectManager->configure($configLoader->load($area));
+        }
+        return $this->objectManager;
+    }
+
+    /**
+     * Retrieves category attribute_id for "url_key"
+     *
+     * @return int|null
+     */
     protected function getCategoryAttributeUrlKeyId()
     {
         if ($this->categoryAttributeUrlKeyId === NULL) {
@@ -126,6 +202,11 @@ class Rebuilder extends Command
         return $this->categoryAttributeUrlKeyId;
     }
 
+    /**
+     * Retrieves category attribute_id for "url_path"
+     *
+     * @return int|null
+     */
     protected function getCategoryAttributeUrlPathId()
     {
         if ($this->categoryAttributeUrlPathId === NULL) {
@@ -149,6 +230,11 @@ class Rebuilder extends Command
         return $this->categoryAttributeUrlPathId;
     }
 
+    /**
+     * Retrieves product attribute_id for "url_key"
+     *
+     * @return int|null
+     */
     protected function getProductAttributeUrlKeyId()
     {
         if ($this->productAttributeUrlKeyId === NULL) {
@@ -171,12 +257,56 @@ class Rebuilder extends Command
         return $this->productAttributeUrlKeyId;
     }
 
+    /**
+     * Retrieves product attribute_id for "url_path"
+     *
+     * @return int|null
+     */
     protected function getProductAttributeUrlPathId()
     {
         if ($this->productAttributeUrlPathId == NULL) {
+            /** @var \Magento\Framework\Module\ModuleResource $moduleResource */
+            $moduleResource = $this->getModuleResource();
+            /** @var \Magento\Framework\DB\Adapter\Pdo\Mysql $connection */
+            $connection = $this->getConnection();
 
+            /** @var \Magento\Framework\DB\Select $select */
+            $select = $connection->select();
+            $select->from(array('eav' => $moduleResource->getTable('eav_attribute')), 'eav.attribute_id')
+                ->join(
+                    array('eavt' => $moduleResource->getTable('eav_entity_type')),
+                    'eav.entity_type_id = eavt.entity_type_id'
+                )->where('eav.attribute_code = ?', 'url_path')
+                ->where('eavt.entity_type_code = ?', 'catalog_product');
+            $this->productAttributeUrlPathId = (int)$connection->query($select)->fetchColumn();
         }
         return $this->productAttributeUrlPathId;
+    }
+
+    /**
+     * Retrieves product attribute_id for "visibility"
+     *
+     * @return int|null
+     */
+    protected function getProductAttributeVisibilityId()
+    {
+        if ($this->productAttributeVisibilityId == NULL) {
+            /** @var \Magento\Framework\Module\ModuleResource $moduleResource */
+            $moduleResource = $this->getModuleResource();
+            /** @var \Magento\Framework\DB\Adapter\Pdo\Mysql $connection */
+            $connection = $this->getConnection();
+
+            /** @var \Magento\Framework\DB\Select $select */
+            $select = $connection->select();
+            $select->from(array('eav' => $moduleResource->getTable('eav_attribute')), 'eav.attribute_id')
+                ->join(
+                    array('eavt' => $moduleResource->getTable('eav_entity_type')),
+                    'eav.entity_type_id = eavt.entity_type_id'
+                )->where('eav.attribute_code = ?', 'visibility')
+                ->where('eavt.entity_type_code = ?', 'catalog_product');
+            $this->productAttributeVisibilityId = (int)$connection->query($select)->fetchColumn();
+        }
+        return $this->productAttributeVisibilityId;
     }
 
     /**
@@ -562,9 +692,6 @@ class Rebuilder extends Command
         /** @var \Magento\Framework\Module\ModuleResource $moduleResource */
         $moduleResource = $this->getModuleResource();
 
-//        /** @var \Magento\Catalog\Model\ResourceModel\Category\Collection $categoryCollection */
-//        $categoryCollection = $this->getObjectManager()->get('Magento\Catalog\Model\ResourceModel\Category\Collection');
-
         /** @var \Magento\CatalogUrlRewrite\Observer\CategoryProcessUrlRewriteSavingObserver $categoryProcess */
         $categoryProcess = $this->getObjectManager()
             ->get('Magento\CatalogUrlRewrite\Observer\CategoryProcessUrlRewriteSavingObserver');
@@ -577,8 +704,6 @@ class Rebuilder extends Command
 
         $categoryEntityTable = $moduleResource->getTable('catalog_category_entity');
         $categoryVarCharTable = $moduleResource->getTable('catalog_category_entity_varchar');
-
-        $this->idColumn;
 
         $select->from(['vuk' => $categoryVarCharTable], ['vuk.value as url_key', 'vuk.store_id'])
             ->join(
@@ -614,6 +739,12 @@ class Rebuilder extends Command
                 foreach ($categories as $category) {
                     $categoryId = (int)$category[$this->idColumn];
 
+                    if (in_array($category['parent_id'], [Category::ROOT_CATEGORY_ID, Category::TREE_ROOT_ID])){
+                        $this->progressBar->advance();
+                        $counter++;
+                        continue;
+                    }
+
                     $categoryModel->unsetData();
                     $categoryModel->setData($category);
 
@@ -630,9 +761,9 @@ class Rebuilder extends Command
                     try {
                         $categoryProcess->execute($observer);
                     } catch (\Exception $e) {
-                        $message = "\n[ERROR] " . $e->getMessage() . "\n categoryID = $categoryId";
+                        $message = "\n[ERROR] {$e->getMessage()} \ncategoryID = $categoryId";
                         $this->output->writeln($message);
-                        return \Magento\Framework\Console\Cli::RETURN_FAILURE;
+                        $this->errors['Category ID = ' . $category['entity_id']] = $message;
                     }
                     $this->progressBar->advance();
                     $counter++;
@@ -668,20 +799,61 @@ class Rebuilder extends Command
         /** @var \Magento\Framework\DB\Adapter\Pdo\Mysql $connection */
         $connection = $this->getConnection();
 
+        /** @var \Magento\Framework\Module\ModuleResource $moduleResource */
+        $moduleResource = $this->getModuleResource();
+
         /** @var \Magento\Catalog\Model\Product $product */
         $product = $this->getObjectManager()->get('Sparta\UrlRewriteRebuilder\Model\Proxy\Product');
+
+        /** @var \Magento\Catalog\Model\Product $productModel */
+        $productModel = $this->getObjectManager()->get('Magento\Catalog\Model\Product');
 
         /** @var \Magento\CatalogUrlRewrite\Observer\ProductProcessUrlRewriteSavingObserver $productProcess */
         $productProcess = $this->getObjectManager()->get('Magento\CatalogUrlRewrite\Observer\ProductProcessUrlRewriteSavingObserver');
 
-        /** @var \Magento\Catalog\Model\ResourceModel\Product\Collection $productCollection */
-        $productCollection = $this->getObjectManager()->get('Magento\Catalog\Model\ResourceModel\Product\Collection');
-        $select = $productCollection->getSelect()
+        /** @var \Magento\Framework\Event\Observer $observer */
+        $observer = new Observer();
+
+        /** @var \Magento\Framework\Event $event */
+        $event = new Event();
+
+        $productEntityTable = $moduleResource->getTable('catalog_product_entity');
+        $productIntTable = $moduleResource->getTable('catalog_product_entity_int');
+        $productVarCharTable = $moduleResource->getTable('catalog_product_entity_varchar');
+
+        $counter = 0;
+        $productId = 0;
+
+        /** @var \Magento\Framework\DB\Select $select */
+        $select = $connection->select();
+        $select->from(['vuk' => $productVarCharTable], ['vuk.value as url_key', 'vuk.store_id'])
+            ->join(
+                ['e' => $productEntityTable],
+                "e.{$this->idColumn} = vuk.{$this->idColumn}"
+            )
+            ->join(
+                ['vup' => $productVarCharTable],
+                "vuk.{$this->idColumn} = vup.{$this->idColumn} AND vup.store_id = vuk.store_id"
+                    . " AND vup.attribute_id = {$this->getProductAttributeUrlPathId()}",
+                'vup.value as url_path'
+            )
+            ->join(
+                ['dv' => $productIntTable],
+                "vuk.{$this->idColumn} = dv.{$this->idColumn} AND dv.store_id = 0"
+                    . " AND dv.attribute_id = {$this->getProductAttributeVisibilityId()}",
+                ''
+            )
             ->joinLeft(
-                ['ur' => $productCollection->getTable('url_rewrite')],
-                'ur.entity_id = e.entity_id AND ur.entity_type="product"',
-                []
-            )->where('ur.entity_id is null');
+                ['sv' => $productIntTable],
+                "vuk.{$this->idColumn} = sv.{$this->idColumn} AND sv.store_id = vuk.store_id"
+                    . " AND sv.attribute_id = {$this->getProductAttributeVisibilityId()}",
+                ''
+            )
+            ->columns(['visibility' => 'IFNULL(sv.value, dv.value)'])
+            ->limit(self::BATCH_SIZE)
+            ->where('IFNULL(sv.value, dv.value) IN (?)', $productModel->getVisibleInSiteVisibilities())
+            ->where("vuk.attribute_id = ?", $this->getProductAttributeUrlKeyId())
+            ->where("vuk.{$this->idColumn} > ?", $productId);
 
         $countSelect = clone $select;
         $countSelect->reset(Select::COLUMNS)->columns('COUNT(*)');
@@ -691,53 +863,42 @@ class Rebuilder extends Command
             $this->progressBar->setMessage('         Rebuilding URL rewrites for products');
             $this->progressBar->start($duplicateCount);
 
-            $counter = 0;
-            $productId = 0;
+            $products = $connection->fetchAll($select);
 
-            $select->reset(Select::WHERE)->order('e.entity_id')
-                ->limit(self::BATCH_SIZE)
-                ->columns('e.' . $productCollection->getEntity()->getIdFieldName())
-                ->where('ur.entity_id is null')
-                ->where('e.entity_id > ?', $productId);
-
-            $productIds = $connection->fetchCol($select);
-
-            while (count($productIds) > 0) {
+            while (count($products) > 0) {
                 $eventName = 'catalog_product_save_after';
 
-                foreach ($productIds as $productId) {
-                    $productId = (int)$productId;
-                    $product->load($productId);
-                    $product->setOrigData('url_key', '');
-                    $product->setUrlPath(null);
-                    $data = ['product' => $product];
+                foreach ($products as $product) {
+                    $productId = (int)$product[$this->idColumn];
+                    $productModel->setData($product);
+                    $productModel->setOrigData('url_key', '');
+                    $productModel->setUrlPath(null);
+                    $data = ['product' => $productModel];
 
-                    /** @var \Magento\Framework\Event $event */
-                    $event = new Event($data);
+                    $event->addData($data);
                     $event->setName($eventName);
 
-                    /** @var \Magento\Framework\Event\Observer $observer */
-                    $observer = new Observer();
                     $observer->setData(array_merge(['event' => $event], $data));
 
                     try {
                         $productProcess->execute($observer);
                     } catch (\Exception $e) {
-                        $message = "\n[ERROR] " . $e->getMessage() . "\n productID = $productId";
+                        $message = "\n[ERROR] " . $e->getMessage() . "\nproductID = {$product['entity_id']}";
                         $this->output->writeln($message);
-                        return \Magento\Framework\Console\Cli::RETURN_FAILURE;
+                        $this->errors['Product ID = ' . $product['entity_id']] = $message;
                     }
                     $this->progressBar->advance();
                     $counter++;
-                    $product->unsetData();
-                    unset($event);
-                    unset($observer);
+                    $productModel->unsetData();
+                    $event->unsetData();
+                    $observer->unsetData();
                 }
 
                 $select->reset(Select::WHERE)
-                    ->where('ur.entity_id is null')
-                    ->where('e.entity_id > ?', $productId);
-                $productIds = $connection->fetchCol($select);
+                    ->where('IFNULL(sv.value, dv.value) IN (?)', $productModel->getVisibleInSiteVisibilities())
+                    ->where("vuk.attribute_id = ?", $this->getProductAttributeUrlKeyId())
+                    ->where("vuk.{$this->idColumn} > ?", $productId);
+                $products = $connection->fetchAll($select);
             }
 
             $this->progressBar->finish();
@@ -774,6 +935,21 @@ class Rebuilder extends Command
             $globalMicroTimeEnd = microtime(true);
             $microTimeDiff = $globalMicroTimeEnd - $globalMicroTimeStart;
 
+            if ($this->errors) {
+                $errorMessage = "ERRORS: \n";
+                $entities = [];
+                foreach ($this->errors as $entity => $error) {
+                    $entities[] = $entity;
+                    $message = "========== {$entity} ==========\n{$error}\n===============================\n\n";
+                    $errorMessage .= $message;
+                }
+
+                $errorMessage .= '[WARNING] Please edit URL key manually for ' . implode("\n", $entities) . "\n";
+
+                error_log(self::LOG_FILE);
+                $this->output->write($errorMessage, true);
+            }
+
             $this->output->write('', true);
             $this->output->write('[FINISH] All system URL rewrites were rebuilt successfully in '
                 . $this->formatTime($microTimeDiff), true);
@@ -784,36 +960,5 @@ class Rebuilder extends Command
             return \Magento\Framework\Console\Cli::RETURN_FAILURE;
         }
         return \Magento\Framework\Console\Cli::RETURN_SUCCESS;
-    }
-
-    /**
-     * Setup progress bar
-     *
-     * @return $this
-     */
-    private function setupProgress()
-    {
-        $this->progressBar = new \Symfony\Component\Console\Helper\ProgressBar($this->output);
-        $this->progressBar->setFormat('<info>%message%</info> %current%/%max% [%bar%] %percent:3s%%');
-        return $this;
-    }
-
-    /**
-     * Gets initialized object manager
-     *
-     * @return \Magento\Framework\ObjectManagerInterface
-     */
-    protected function getObjectManager()
-    {
-        if (null == $this->objectManager) {
-            $area = FrontNameResolver::AREA_CODE;
-            $this->objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-            /** @var \Magento\Framework\App\State $appState */
-            $appState = $this->objectManager->get('Magento\Framework\App\State');
-            $appState->setAreaCode($area);
-            $configLoader = $this->objectManager->get('Magento\Framework\ObjectManager\ConfigLoaderInterface');
-            $this->objectManager->configure($configLoader->load($area));
-        }
-        return $this->objectManager;
     }
 }

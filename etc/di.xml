@@ -13,4 +13,8 @@
             </argument>
         </arguments>
     </type>
+    <preference for="Magento\CatalogUrlRewrite\Observer\CategoryProcessUrlRewriteSavingObserver"
+                type="Sparta\UrlRewriteRebuilder\Model\CategoryProcessor" />
+    <preference for="Magento\CatalogUrlRewrite\Observer\ProductProcessUrlRewriteSavingObserver"
+                type="Sparta\UrlRewriteRebuilder\Model\ProductProcessor" />
 </config>
