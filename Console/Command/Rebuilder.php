@@ -944,9 +944,9 @@ class Rebuilder extends Command
                     $errorMessage .= $message;
                 }
 
-                $errorMessage .= '[WARNING] Please edit URL key manually for ' . implode("\n", $entities) . "\n";
+                $errorMessage .= '[WARNING] Please edit URL key manually for ' . implode("\n", $entities);
 
-                error_log(self::LOG_FILE);
+                error_log($errorMessage, 3, self::LOG_FILE);
                 $this->output->write($errorMessage, true);
             }
 
