@@ -6,7 +6,7 @@ Usage:
  sparta:rebuild:rewrites [-m|--mode[="..."]]
 
 Options:
- --mode (-m)           Mode: truncate or delete
+--mode (-m)           Mode: truncate or delete (default: "delete")
 ```
 
 

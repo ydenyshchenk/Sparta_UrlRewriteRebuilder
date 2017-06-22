@@ -127,7 +127,7 @@ class Rebuilder extends Command
         $this->setName('sparta:rebuild:rewrites')
             ->setDescription('Rebuild Product URL Rewrites')
             ->addOption(self::INPUT_KEY_MODE, 'm', InputOption::VALUE_OPTIONAL,
-                'Mode: ' . self::MODE_TRUNCATE . ' or ' . self::MODE_DELETE);
+                'Mode: ' . self::MODE_TRUNCATE . ' or ' . self::MODE_DELETE, self::MODE_DELETE);
         parent::configure();
     }
 
