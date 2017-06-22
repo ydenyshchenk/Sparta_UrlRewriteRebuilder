@@ -14,8 +14,6 @@ $ php bin/magento sparta:rebuild:rewrites
          Rebuilding URL rewrites for categories 641/641 [============================] 100%
          Successfully regenerated URL rewrites for 641 categories and linked products in 00:00:25
 [STEP 6] Rebuilding URL rewrites for products... 
-         Rebuilding URL rewrites for products  6425/16306 [===========>----------------]  39%
-[ERROR] URL key for specified store already exists. 
          Rebuilding URL rewrites for products 16306/16306 [============================] 100%
          Successfully regenerated URL rewrites for 16259 products in 00:05:05
 
