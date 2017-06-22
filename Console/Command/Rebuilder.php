@@ -831,13 +831,13 @@ class Rebuilder extends Command
                 ['e' => $productEntityTable],
                 "e.{$this->idColumn} = vuk.{$this->idColumn}"
             )
-            ->join(
+            ->joinLeft(
                 ['vup' => $productVarCharTable],
                 "vuk.{$this->idColumn} = vup.{$this->idColumn} AND vup.store_id = vuk.store_id"
                     . " AND vup.attribute_id = {$this->getProductAttributeUrlPathId()}",
                 'vup.value as url_path'
             )
-            ->join(
+            ->joinLeft(
                 ['dv' => $productIntTable],
                 "vuk.{$this->idColumn} = dv.{$this->idColumn} AND dv.store_id = 0"
                     . " AND dv.attribute_id = {$this->getProductAttributeVisibilityId()}",
@@ -854,6 +854,8 @@ class Rebuilder extends Command
             ->where('IFNULL(sv.value, dv.value) IN (?)', $productModel->getVisibleInSiteVisibilities())
             ->where("vuk.attribute_id = ?", $this->getProductAttributeUrlKeyId())
             ->where("vuk.{$this->idColumn} > ?", $productId);
+
+        $sql = (string)$select;
 
         $countSelect = clone $select;
         $countSelect->reset(Select::COLUMNS)->columns('COUNT(*)');
