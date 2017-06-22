@@ -1,5 +1,13 @@
 # Sparta_UrlRewriteRebuilder supposed to regenerate URL rewrites
+## Installation
+```
+git clone git@github.com:ydenyshchenk/Sparta_UrlRewriteRebuilder.git app/code/Sparta/UrlRewriteRebuilder
+bin/magento module:enable Sparta_UrlRewriteRebuilder
+bin/magento setup:upgrade
+chmod -R var
+```
 
+## Usage
 ```sh
 $ php bin/magento sparta:rebuild:rewrite -h
 Usage:
