@@ -532,20 +532,25 @@ class Rebuilder extends Command
                     array_shift($valueIds);
                     $suffixId = 1;
                     foreach ($valueIds as $valueIdRow) {
+                        if (!$data['url_key']) {
+                            $data['url_key'] = $valueIdRow['value_id'];
+                        }
                         $urlKey = $data['url_key'] . '-' . $suffixId;
                         $connection->update($categoryVarCharTable,
                             array('value' => $urlKey),
                             array('value_id = ?' => (int)$valueIdRow['value_id'])
                         );
 
-                        $urlPath = $data['url_path'] . '-' . $suffixId;
-                        $connection->update($categoryVarCharTable,
-                            array('value' => $urlPath),
-                            array(
-                                $this->idColumn . ' = ?' => $valueIdRow[$this->idColumn],
-                                'attribute_id = ?' => $this->getCategoryAttributeUrlPathId()
-                            )
-                        );
+                        if ($data['url_path']) {
+                            $urlPath = $data['url_path'] . '-' . $suffixId;
+                            $connection->update($categoryVarCharTable,
+                                array('value' => $urlPath),
+                                array(
+                                    $this->idColumn . ' = ?' => $valueIdRow[$this->idColumn],
+                                    'attribute_id = ?' => $this->getCategoryAttributeUrlPathId()
+                                )
+                            );
+                        }
                         $suffixId++;
                     }
                     $this->progressBar->advance();
@@ -854,8 +859,6 @@ class Rebuilder extends Command
             ->where('IFNULL(sv.value, dv.value) IN (?)', $productModel->getVisibleInSiteVisibilities())
             ->where("vuk.attribute_id = ?", $this->getProductAttributeUrlKeyId())
             ->where("vuk.{$this->idColumn} > ?", $productId);
-
-        $sql = (string)$select;
 
         $countSelect = clone $select;
         $countSelect->reset(Select::COLUMNS)->columns('COUNT(*)');
