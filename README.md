@@ -1,5 +1,11 @@
 # Sparta_UrlRewriteRebuilder supposed to regenerate URL rewrites
 
+*This is not official URL rewrite re-indexer of Magento 2
+
+This tool made for resolving URL key conflicts in categories and products AND regenerating (reindexing) all URL rewrites 
+in Magento 2.
+It maybe helpful if you have a lot of missed URL rewrites that should be created on categories/products creation.
+
 ```sh
 $ php bin/magento sparta:rebuild:rewrite -h
 Usage:
@@ -11,7 +17,7 @@ Options:
 
 
 ```sh
-$ php bin/magento sparta:rebuild:rewrites
+$ php bin/magento sparta:rebuild:rewrites -m=truncate
 [STEP 1] Truncating tables `catalog_url_rewrite_product_category` and `url_rewrite`... performed successfully in 00:00:00
 [STEP 2] Rebuilding URL rewrites for CMS pages... performed successfully in 00:00:01
 [STEP 3] Checking for duplicate url_key category values
