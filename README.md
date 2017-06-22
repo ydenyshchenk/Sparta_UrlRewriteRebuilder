@@ -1,6 +1,16 @@
 # Sparta_UrlRewriteRebuilder supposed to regenerate URL rewrites
 
 ```sh
+$ php bin/magento sparta:rebuild:rewrite -h
+Usage:
+ sparta:rebuild:rewrites [-m|--mode[="..."]]
+
+Options:
+ --mode (-m)           Mode: truncate or delete
+```
+
+
+```sh
 $ php bin/magento sparta:rebuild:rewrites
 [STEP 1] Truncating tables `catalog_url_rewrite_product_category` and `url_rewrite`... performed successfully in 00:00:00
 [STEP 2] Rebuilding URL rewrites for CMS pages... performed successfully in 00:00:01
