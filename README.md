@@ -1,10 +1,16 @@
 # Sparta_UrlRewriteRebuilder supposed to regenerate URL rewrites
+## WARNINGS:
+- It\`s STRONGLY NOT RECOMMENDED to to KEEP *Sparta_UrlRewriteRebuilder* ENABLED on production when it\`s not used for reerites rebuilding
+- *Sparta_UrlRewriteRebuilder* tool CHANGES URL keys, URL pathes - PLEASE check changed data after running tool
+- ALWAYS accurately test tool and check results (category and product URL key and URL path values, generated URL rewrites) on DEV COPY of production site on first
+- ALWAYS CREATE BACKUPS before running rebuild rewrites on PRODUCTION
+
 ## Installation
 ```
 git clone git@github.com:ydenyshchenk/Sparta_UrlRewriteRebuilder.git app/code/Sparta/UrlRewriteRebuilder
 bin/magento module:enable Sparta_UrlRewriteRebuilder
 bin/magento setup:upgrade
-chmod -R var
+chmod -R 777 var
 ```
 
 ## Usage

@@ -1002,7 +1002,7 @@ class Rebuilder extends Command
                     $errorMessage .= $message;
                 }
 
-                $errorMessage .= '[WARNING] Please edit URL key manually for ' . implode("\n", $entities);
+                $errorMessage .= '[WARNING] Please DISABLE "Sparta_UrlRewriteRebuilder" module and then edit URL key manually for ' . implode("\n", $entities);
 
                 error_log($errorMessage, 3, self::LOG_FILE);
                 $this->output->write($errorMessage, true);
