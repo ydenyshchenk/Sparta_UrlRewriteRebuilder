@@ -1,5 +1,5 @@
 # Sparta_UrlRewriteRebuilder supposed to regenerate URL rewrites
-## <span style="color:red">WARNINGS</span>:
+## WARNINGS:
 - It\`s STRONGLY NOT RECOMMENDED to KEEP *Sparta_UrlRewriteRebuilder* ENABLED on production when it\`s not used for rewrites rebuilding
 - *Sparta_UrlRewriteRebuilder* tool CHANGES URL keys, URL pathes - PLEASE check changed data after running tool
 - ALWAYS accurately test tool and check results (category and product URL key and URL path values, generated URL rewrites) on DEV COPY of production site on first
