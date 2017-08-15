@@ -190,13 +190,7 @@ class Rebuilder extends Command
     protected function getObjectManager()
     {
         if (null == $this->objectManager) {
-            $area = FrontNameResolver::AREA_CODE;
             $this->objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-            /** @var \Magento\Framework\App\State $appState */
-            $appState = $this->objectManager->get('Magento\Framework\App\State');
-            $appState->setAreaCode($area);
-            $configLoader = $this->objectManager->get('Magento\Framework\ObjectManager\ConfigLoaderInterface');
-            $this->objectManager->configure($configLoader->load($area));
         }
         return $this->objectManager;
     }
