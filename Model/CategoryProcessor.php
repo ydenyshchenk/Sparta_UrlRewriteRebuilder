@@ -4,13 +4,51 @@ namespace Sparta\UrlRewriteRebuilder\Model;
 use Magento\Catalog\Model\Category;
 use Magento\CatalogUrlRewrite\Observer\CategoryProcessUrlRewriteSavingObserver;
 
+use Magento\CatalogUrlRewrite\Model\CategoryUrlRewriteGenerator;
+
+
 class CategoryProcessor extends CategoryProcessUrlRewriteSavingObserver
 {
+    /**
+     * Category UrlRewrite generator.
+     *
+     * @var CategoryUrlRewriteGenerator
+     */
+    private $categoryUrlRewriteGenerator;
+
+    /**
+     * @param \Magento\CatalogUrlRewrite\Model\CategoryUrlRewriteGenerator $categoryUrlRewriteGenerator
+     * @param UrlRewriteHandler $urlRewriteHandler
+     * @param UrlRewriteBunchReplacer $urlRewriteBunchReplacer
+     * @param DatabaseMapPool $databaseMapPool
+     * @param string[] $dataUrlRewriteClassNames
+     */
+    public function __construct(
+        \Magento\CatalogUrlRewrite\Model\CategoryUrlRewriteGenerator $categoryUrlRewriteGenerator,
+        \Magento\CatalogUrlRewrite\Observer\UrlRewriteHandler $urlRewriteHandler,
+        \Magento\CatalogUrlRewrite\Model\UrlRewriteBunchReplacer $urlRewriteBunchReplacer,
+        \Magento\CatalogUrlRewrite\Model\Map\DatabaseMapPool $databaseMapPool,
+        $dataUrlRewriteClassNames = [
+            \Magento\CatalogUrlRewrite\Model\Map\DataCategoryUrlRewriteDatabaseMap::class,
+            \Magento\CatalogUrlRewrite\Model\Map\DataProductUrlRewriteDatabaseMap::class
+        ]
+    ) {
+        $this->categoryUrlRewriteGenerator = $categoryUrlRewriteGenerator;
+        parent::__construct(
+            $categoryUrlRewriteGenerator,
+            $urlRewriteHandler,
+            $urlRewriteBunchReplacer,
+            $databaseMapPool,
+            $dataUrlRewriteClassNames
+        );
+    }
+
     /**
      * Generate urls for UrlRewrite and save it in storage
      *
      * @param \Magento\Framework\Event\Observer $observer
      * @return void
+     * @throws \Exception
      */
     public function execute(\Magento\Framework\Event\Observer $observer)
     {
