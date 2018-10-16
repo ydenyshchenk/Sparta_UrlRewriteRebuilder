@@ -3,44 +3,75 @@
 namespace Sparta\UrlRewriteRebuilder\Model;
 use Magento\Catalog\Model\Category;
 use Magento\CatalogUrlRewrite\Observer\CategoryProcessUrlRewriteSavingObserver;
-
 use Magento\CatalogUrlRewrite\Model\CategoryUrlRewriteGenerator;
+use Magento\CatalogUrlRewrite\Model\Map\DatabaseMapPool;
+use Magento\CatalogUrlRewrite\Model\Map\DataCategoryUrlRewriteDatabaseMap;
+use Magento\CatalogUrlRewrite\Model\Map\DataProductUrlRewriteDatabaseMap;
+use Magento\CatalogUrlRewrite\Model\UrlRewriteBunchReplacer;
+use Magento\Framework\Event\ObserverInterface;
+use Magento\Store\Model\ResourceModel\Group\CollectionFactory;
+use Magento\Store\Model\ResourceModel\Group\Collection as StoreGroupCollection;
+use Magento\Framework\App\ObjectManager;
 
 
 class CategoryProcessor extends CategoryProcessUrlRewriteSavingObserver
 {
     /**
-     * Category UrlRewrite generator.
-     *
-     * @var CategoryUrlRewriteGenerator
+     * @var \Magento\CatalogUrlRewrite\Model\CategoryUrlRewriteGenerator
      */
     private $categoryUrlRewriteGenerator;
 
     /**
-     * @param \Magento\CatalogUrlRewrite\Model\CategoryUrlRewriteGenerator $categoryUrlRewriteGenerator
+     * @var \Magento\CatalogUrlRewrite\Model\UrlRewriteBunchReplacer
+     */
+    private $urlRewriteBunchReplacer;
+
+    /**
+     * @var \Magento\CatalogUrlRewrite\Observer\UrlRewriteHandler
+     */
+    private $urlRewriteHandler;
+
+    /**
+     * @var \Magento\CatalogUrlRewrite\Model\Map\DatabaseMapPool
+     */
+    private $databaseMapPool;
+
+    /**
+     * @var string[]
+     */
+    private $dataUrlRewriteClassNames;
+
+    /**
+     * @var CollectionFactory
+     */
+    private $storeGroupFactory;
+
+    /**
+     * @param CategoryUrlRewriteGenerator $categoryUrlRewriteGenerator
      * @param UrlRewriteHandler $urlRewriteHandler
      * @param UrlRewriteBunchReplacer $urlRewriteBunchReplacer
      * @param DatabaseMapPool $databaseMapPool
      * @param string[] $dataUrlRewriteClassNames
+     * @param CollectionFactory|null $storeGroupFactory
      */
     public function __construct(
-        \Magento\CatalogUrlRewrite\Model\CategoryUrlRewriteGenerator $categoryUrlRewriteGenerator,
+        CategoryUrlRewriteGenerator $categoryUrlRewriteGenerator,
         \Magento\CatalogUrlRewrite\Observer\UrlRewriteHandler $urlRewriteHandler,
-        \Magento\CatalogUrlRewrite\Model\UrlRewriteBunchReplacer $urlRewriteBunchReplacer,
-        \Magento\CatalogUrlRewrite\Model\Map\DatabaseMapPool $databaseMapPool,
+        UrlRewriteBunchReplacer $urlRewriteBunchReplacer,
+        DatabaseMapPool $databaseMapPool,
         $dataUrlRewriteClassNames = [
-            \Magento\CatalogUrlRewrite\Model\Map\DataCategoryUrlRewriteDatabaseMap::class,
-            \Magento\CatalogUrlRewrite\Model\Map\DataProductUrlRewriteDatabaseMap::class
-        ]
+            DataCategoryUrlRewriteDatabaseMap::class,
+            DataProductUrlRewriteDatabaseMap::class
+        ],
+        CollectionFactory $storeGroupFactory = null
     ) {
         $this->categoryUrlRewriteGenerator = $categoryUrlRewriteGenerator;
-        parent::__construct(
-            $categoryUrlRewriteGenerator,
-            $urlRewriteHandler,
-            $urlRewriteBunchReplacer,
-            $databaseMapPool,
-            $dataUrlRewriteClassNames
-        );
+        $this->urlRewriteHandler = $urlRewriteHandler;
+        $this->urlRewriteBunchReplacer = $urlRewriteBunchReplacer;
+        $this->databaseMapPool = $databaseMapPool;
+        $this->dataUrlRewriteClassNames = $dataUrlRewriteClassNames;
+        $this->storeGroupFactory = $storeGroupFactory
+            ?: ObjectManager::getInstance()->get(CollectionFactory::class);
     }
 
     /**
@@ -58,10 +89,17 @@ class CategoryProcessor extends CategoryProcessUrlRewriteSavingObserver
             return;
         }
 
-        $urlRewrites = $this->categoryUrlRewriteGenerator->generate($category);
+        if (!$category->hasData('store_id')) {
+            $this->setCategoryStoreId($category);
+        }
+
+        $categoryUrlRewriteResult = $this->categoryUrlRewriteGenerator->generate($category);
 
         try {
-            $this->urlPersist->replace($urlRewrites);
+            $this->urlRewriteBunchReplacer->doBunchReplace($categoryUrlRewriteResult);
+
+//            $productUrlRewriteResult = $this->urlRewriteHandler->generateProductUrlRewrites($category);
+//            $this->urlRewriteBunchReplacer->doBunchReplace($productUrlRewriteResult);
         } catch (\Exception $e) {
             $message = "{$e->getMessage()} \n"
                 . "Category ID = {$category->getId()} \n"
@@ -70,7 +108,7 @@ class CategoryProcessor extends CategoryProcessUrlRewriteSavingObserver
             $urlRewriteData = [];
 
             /** @var UrlRewrite $urlRewrite */
-            foreach ($urlRewrites as $urlRewrite) {
+            foreach ($categoryUrlRewriteResult as $urlRewrite) {
                 $urlRewriteData[] = "entity_type = {$urlRewrite->getEntityType()} \n"
                     . "entity_id = {$urlRewrite->getEntityId()} \n"
                     . "request_path = {$urlRewrite->getRequestPath()} \n"
@@ -78,11 +116,34 @@ class CategoryProcessor extends CategoryProcessUrlRewriteSavingObserver
                     . "store_id = {$urlRewrite->getStoreId()}";
             }
 
-            $message .= count($urlRewrites) . " URL rewrites: \n\n"
+            $message .= count($categoryUrlRewriteResult) . " URL rewrites: \n\n"
                 . implode("\n\n ========== \n\n", $urlRewriteData);
 
             throw new \Exception($message);
             return \Magento\Framework\Console\Cli::RETURN_FAILURE;
+        }
+    }
+
+    /**
+     * in case store_id is not set for category then we can assume that it was passed through product import.
+     * store group must have only one root category, so receiving category's path and checking if one of it parts
+     * is the root category for store group, we can set default_store_id value from it to category.
+     * it prevents urls duplication for different stores
+     * ("Default Category/category/sub" and "Default Category2/category/sub")
+     *
+     * @param Category $category
+     * @return void
+     */
+    private function setCategoryStoreId($category)
+    {
+        /** @var StoreGroupCollection $storeGroupCollection */
+        $storeGroupCollection = $this->storeGroupFactory->create();
+
+        foreach ($storeGroupCollection as $storeGroup) {
+            /** @var \Magento\Store\Model\Group $storeGroup */
+            if (in_array($storeGroup->getRootCategoryId(), explode('/', $category->getPath()))) {
+                $category->setStoreId($storeGroup->getDefaultStoreId());
+            }
         }
     }
 }
