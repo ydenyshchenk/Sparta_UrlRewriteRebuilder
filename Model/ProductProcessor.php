@@ -6,7 +6,6 @@ use Magento\UrlRewrite\Service\V1\Data\UrlRewrite;
 use Magento\CatalogUrlRewrite\Model\ProductUrlRewriteGenerator;
 use Magento\CatalogUrlRewrite\Observer\ProductProcessUrlRewriteSavingObserver;
 use Magento\UrlRewrite\Model\UrlPersistInterface;
-use Magento\Framework\Event\ObserverInterface;
 
 class ProductProcessor extends ProductProcessUrlRewriteSavingObserver
 {
