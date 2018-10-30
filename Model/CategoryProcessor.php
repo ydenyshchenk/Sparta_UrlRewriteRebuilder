@@ -3,6 +3,8 @@
 namespace Sparta\UrlRewriteRebuilder\Model;
 use Magento\Catalog\Model\Category;
 use Magento\CatalogUrlRewrite\Observer\CategoryProcessUrlRewriteSavingObserver;
+use Magento\Framework\App\ObjectManager;
+use Magento\Framework\Registry;
 
 class CategoryProcessor extends CategoryProcessUrlRewriteSavingObserver
 {
@@ -14,6 +16,13 @@ class CategoryProcessor extends CategoryProcessUrlRewriteSavingObserver
      */
     public function execute(\Magento\Framework\Event\Observer $observer)
     {
+        /** @var Registry $registry */
+        $registry = ObjectManager::getInstance()->get(Registry::class);
+        $isInternal = $registry->registry('Sparta_UrlRewriteRebuilder');
+        if (empty($isInternal)) {
+            return parent::execute($observer);
+        }
+
         /** @var Category $category */
         $category = $observer->getEvent()->getCategory();
         if (in_array($category->getParentId(), [Category::ROOT_CATEGORY_ID, Category::TREE_ROOT_ID])){

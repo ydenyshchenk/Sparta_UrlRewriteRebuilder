@@ -5,6 +5,8 @@ use Magento\Catalog\Model\Product;
 use Magento\UrlRewrite\Service\V1\Data\UrlRewrite;
 use Magento\CatalogUrlRewrite\Model\ProductUrlRewriteGenerator;
 use Magento\CatalogUrlRewrite\Observer\ProductProcessUrlRewriteSavingObserver;
+use Magento\Framework\App\ObjectManager;
+use Magento\Framework\Registry;
 
 class ProductProcessor extends ProductProcessUrlRewriteSavingObserver
 {
@@ -13,6 +15,13 @@ class ProductProcessor extends ProductProcessUrlRewriteSavingObserver
      */
     public function execute(\Magento\Framework\Event\Observer $observer)
     {
+        /** @var Registry $registry */
+        $registry = ObjectManager::getInstance()->get(Registry::class);
+        $isInternal = $registry->registry('Sparta_UrlRewriteRebuilder');
+        if (empty($isInternal)) {
+            return parent::execute($observer);
+        }
+
         /** @var Product $product */
         $product = $observer->getEvent()->getProduct();
 
