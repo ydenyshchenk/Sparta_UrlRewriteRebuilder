@@ -8,11 +8,11 @@ use Magento\CatalogUrlRewrite\Model\Map\DatabaseMapPool;
 use Magento\CatalogUrlRewrite\Model\Map\DataCategoryUrlRewriteDatabaseMap;
 use Magento\CatalogUrlRewrite\Model\Map\DataProductUrlRewriteDatabaseMap;
 use Magento\CatalogUrlRewrite\Model\UrlRewriteBunchReplacer;
-use Magento\Framework\Event\ObserverInterface;
+use Magento\CatalogUrlRewrite\Observer\UrlRewriteHandler;
 use Magento\Store\Model\ResourceModel\Group\CollectionFactory;
 use Magento\Store\Model\ResourceModel\Group\Collection as StoreGroupCollection;
 use Magento\Framework\App\ObjectManager;
-
+use Magento\Framework\Registry;
 
 class CategoryProcessor extends CategoryProcessUrlRewriteSavingObserver
 {
@@ -56,7 +56,7 @@ class CategoryProcessor extends CategoryProcessUrlRewriteSavingObserver
      */
     public function __construct(
         CategoryUrlRewriteGenerator $categoryUrlRewriteGenerator,
-        \Magento\CatalogUrlRewrite\Observer\UrlRewriteHandler $urlRewriteHandler,
+        UrlRewriteHandler $urlRewriteHandler,
         UrlRewriteBunchReplacer $urlRewriteBunchReplacer,
         DatabaseMapPool $databaseMapPool,
         $dataUrlRewriteClassNames = [
@@ -83,6 +83,13 @@ class CategoryProcessor extends CategoryProcessUrlRewriteSavingObserver
      */
     public function execute(\Magento\Framework\Event\Observer $observer)
     {
+        /** @var Registry $registry */
+        $registry = ObjectManager::getInstance()->get(Registry::class);
+        $isInternal = $registry->registry('Sparta_UrlRewriteRebuilder');
+        if (empty($isInternal)) {
+            return parent::execute($observer);
+        }
+
         /** @var Category $category */
         $category = $observer->getEvent()->getCategory();
         if (in_array($category->getParentId(), [Category::ROOT_CATEGORY_ID, Category::TREE_ROOT_ID])){
@@ -97,9 +104,6 @@ class CategoryProcessor extends CategoryProcessUrlRewriteSavingObserver
 
         try {
             $this->urlRewriteBunchReplacer->doBunchReplace($categoryUrlRewriteResult);
-
-//            $productUrlRewriteResult = $this->urlRewriteHandler->generateProductUrlRewrites($category);
-//            $this->urlRewriteBunchReplacer->doBunchReplace($productUrlRewriteResult);
         } catch (\Exception $e) {
             $message = "{$e->getMessage()} \n"
                 . "Category ID = {$category->getId()} \n"

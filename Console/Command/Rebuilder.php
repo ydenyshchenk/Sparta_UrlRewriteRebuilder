@@ -10,6 +10,8 @@ use Symfony\Component\Console\Command\Command;
 use Magento\Framework\Event;
 use Magento\Framework\Event\Observer;
 use Magento\Catalog\Model\Category;
+use Magento\Framework\Registry;
+use Magento\Framework\App\ObjectManager;
 
 class Rebuilder extends Command
 {
@@ -122,6 +124,17 @@ class Rebuilder extends Command
     /**
      * {@inheritdoc}
      */
+    public function __construct()
+    {
+        /** @var Registry $registry */
+        $registry = $this->getObjectManager()->get(Registry::class);
+        $registry->register('Sparta_UrlRewriteRebuilder', true);
+        parent::__construct();
+    }
+
+    /**
+     * {@inheritdoc}
+     */
     protected function configure()
     {
         $this->setName('sparta:rebuild:rewrites')
@@ -190,7 +203,7 @@ class Rebuilder extends Command
     protected function getObjectManager()
     {
         if (null == $this->objectManager) {
-            $this->objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+            $this->objectManager = ObjectManager::getInstance();
         }
         return $this->objectManager;
     }
