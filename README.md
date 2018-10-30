@@ -7,7 +7,7 @@
 
 ## Installation
 ```
-git clone --branch 2.1.9 git@github.com:ydenyshchenk/Sparta_UrlRewriteRebuilder.git app/code/Sparta/UrlRewriteRebuilder
+git clone --branch 2.1.15 git@github.com:ydenyshchenk/Sparta_UrlRewriteRebuilder.git app/code/Sparta/UrlRewriteRebuilder
 bin/magento module:enable Sparta_UrlRewriteRebuilder
 bin/magento setup:upgrade
 chmod -R 777 var
