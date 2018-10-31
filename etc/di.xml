@@ -17,4 +17,6 @@
                 type="Sparta\UrlRewriteRebuilder\Model\CategoryProcessor" />
     <preference for="Magento\CatalogUrlRewrite\Observer\ProductProcessUrlRewriteSavingObserver"
                 type="Sparta\UrlRewriteRebuilder\Model\ProductProcessor" />
+    <preference for="Magento\UrlRewrite\Model\Storage\DbStorage"
+                type="Sparta\UrlRewriteRebuilder\Model\DbStorage" />
 </config>
