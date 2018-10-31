@@ -1009,7 +1009,7 @@ class Rebuilder extends Command
             $this->checkCategoryUrlKeys();
             $this->checkProductUrlKeys();
             $this->rebuildCategoryUrlRewrites();
-//            $this->rebuildProductUrlRewrites();
+            $this->rebuildProductUrlRewrites();
 
             $globalMicroTimeEnd = microtime(true);
             $microTimeDiff = $globalMicroTimeEnd - $globalMicroTimeStart;
