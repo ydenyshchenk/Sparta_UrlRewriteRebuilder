@@ -12,6 +12,7 @@ bin/magento module:enable Sparta_UrlRewriteRebuilder
 bin/magento setup:upgrade
 chmod -R 777 var
 ```
+Please use the next branches for your Magento version: 2.1.9, 2.1.15, 2.2.6
 
 ## Usage
 ```sh
