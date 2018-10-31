@@ -830,7 +830,7 @@ class Rebuilder extends Command
                     try {
                         $categoryProcess->execute($observer);
                     } catch (\Exception $e) {
-                        $message = "\n[ERROR] {$e->getMessage()} \ncategoryID = $categoryId";
+                        $message = "\n[ERROR] {$e->getMessage()}";
                         $this->output->writeln($message);
                         $this->errors['Category ID = ' . $category['entity_id']] = $message;
                     }
@@ -952,7 +952,7 @@ class Rebuilder extends Command
                     try {
                         $productProcess->execute($observer);
                     } catch (\Exception $e) {
-                        $message = "\n[ERROR] " . $e->getMessage() . "\nproductID = {$product['entity_id']}";
+                        $message = "\n[ERROR] " . $e->getMessage();
                         $this->output->writeln($message);
                         $this->errors['Product ID = ' . $product['entity_id']] = $message;
                     }
