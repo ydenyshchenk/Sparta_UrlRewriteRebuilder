@@ -1009,7 +1009,7 @@ class Rebuilder extends Command
             $this->checkCategoryUrlKeys();
             $this->checkProductUrlKeys();
             $this->rebuildCategoryUrlRewrites();
-            $this->rebuildProductUrlRewrites();
+//            $this->rebuildProductUrlRewrites();
 
             $globalMicroTimeEnd = microtime(true);
             $microTimeDiff = $globalMicroTimeEnd - $globalMicroTimeStart;
@@ -1019,11 +1019,13 @@ class Rebuilder extends Command
                 $entities = [];
                 foreach ($this->errors as $entity => $error) {
                     $entities[] = $entity;
-                    $message = "========== {$entity} ==========\n{$error}\n===============================\n\n";
+                    $message = "========== {$entity} =========={$error}\n";
                     $errorMessage .= $message;
                 }
 
-                $errorMessage .= '[WARNING] Please DISABLE "Sparta_UrlRewriteRebuilder" module and then edit URL key manually for ' . implode("\n", $entities);
+                $errorMessage .= "\n=========================\n";
+                $errorMessage .= '[WARNING] Please DISABLE "Sparta_UrlRewriteRebuilder" module and then review error '
+                    . 'listed above related to the next entities (start from the SQL queries from the errors to find exist URL rewrites)' . "\n" . implode("\n", $entities);
 
                 error_log($errorMessage, 3, self::LOG_FILE);
                 $this->output->write($errorMessage, true);
