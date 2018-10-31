@@ -106,22 +106,7 @@ class CategoryProcessor extends CategoryProcessUrlRewriteSavingObserver
             $this->urlRewriteBunchReplacer->doBunchReplace($categoryUrlRewriteResult);
         } catch (\Exception $e) {
             $message = "{$e->getMessage()} \n"
-                . "Category ID = {$category->getId()} \n"
-                . "URL rewrites: \n";
-
-            $urlRewriteData = [];
-
-            /** @var UrlRewrite $urlRewrite */
-            foreach ($categoryUrlRewriteResult as $urlRewrite) {
-                $urlRewriteData[] = "entity_type = {$urlRewrite->getEntityType()} \n"
-                    . "entity_id = {$urlRewrite->getEntityId()} \n"
-                    . "request_path = {$urlRewrite->getRequestPath()} \n"
-                    . "target_path = {$urlRewrite->getTargetPath()} \n"
-                    . "store_id = {$urlRewrite->getStoreId()}";
-            }
-
-            $message .= count($categoryUrlRewriteResult) . " URL rewrites: \n\n"
-                . implode("\n\n ========== \n\n", $urlRewriteData);
+                . "Category ID = {$category->getId()} \n";
 
             throw new \Exception($message);
             return \Magento\Framework\Console\Cli::RETURN_FAILURE;
