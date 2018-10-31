@@ -5,11 +5,34 @@ use Magento\Catalog\Model\Product;
 use Magento\UrlRewrite\Service\V1\Data\UrlRewrite;
 use Magento\CatalogUrlRewrite\Model\ProductUrlRewriteGenerator;
 use Magento\CatalogUrlRewrite\Observer\ProductProcessUrlRewriteSavingObserver;
+use Magento\UrlRewrite\Model\UrlPersistInterface;
 use Magento\Framework\App\ObjectManager;
 use Magento\Framework\Registry;
 
 class ProductProcessor extends ProductProcessUrlRewriteSavingObserver
 {
+    /**
+     * @var ProductUrlRewriteGenerator
+     */
+    private $productUrlRewriteGenerator;
+
+    /**
+     * @var UrlPersistInterface
+     */
+    private $urlPersist;
+
+    /**
+     * @param ProductUrlRewriteGenerator $productUrlRewriteGenerator
+     * @param UrlPersistInterface $urlPersist
+     */
+    public function __construct(
+        ProductUrlRewriteGenerator $productUrlRewriteGenerator,
+        UrlPersistInterface $urlPersist
+    ) {
+        $this->productUrlRewriteGenerator = $productUrlRewriteGenerator;
+        $this->urlPersist = $urlPersist;
+    }
+
     /**
      * {@inheritdoc}
      */
@@ -44,22 +67,7 @@ class ProductProcessor extends ProductProcessUrlRewriteSavingObserver
                     $this->urlPersist->replace($urlRewrites);
                 } catch (\Exception $e) {
                     $message = "{$e->getMessage()} \n"
-                        . "Product ID = {$product->getId()} \n"
-                        . "URL rewrites: \n";
-
-                    $urlRewriteData = [];
-
-                    /** @var UrlRewrite $urlRewrite */
-                    foreach ($urlRewrites as $urlRewrite) {
-                        $urlRewriteData[] = "entity_type = {$urlRewrite->getEntityType()} \n"
-                            . "entity_id = {$urlRewrite->getEntityId()} \n"
-                            . "request_path = {$urlRewrite->getRequestPath()} \n"
-                            . "target_path = {$urlRewrite->getTargetPath()} \n"
-                            . "store_id = {$urlRewrite->getStoreId()}";
-                    }
-
-                    $message .= count($urlRewrites) . " URL rewrites: \n\n"
-                        . implode("\n\n ========== \n\n", $urlRewriteData);
+                        . "Product ID = {$product->getId()} \n";
 
                     throw new \Exception($message);
                     return \Magento\Framework\Console\Cli::RETURN_FAILURE;
