@@ -18,15 +18,17 @@ class DbStorage extends MagentoDbStorage
      */
     public function replace(array $urls)
     {
+        $result = [];
         if (!$urls) {
-            return;
+            return $result;
         }
 
         try {
-            $this->doReplace($urls);
+            $result = $this->doReplace($urls);
         } catch (AlreadyExistsException $e) {
             throw $e;
         }
+        return $result;
     }
 
     /**
